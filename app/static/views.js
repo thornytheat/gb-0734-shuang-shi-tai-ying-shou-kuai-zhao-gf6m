@@ -10,6 +10,8 @@ const states = {
 };
 const bucketNames = {current: '未逾期', d01_30: '1–30 天', d31_60: '31–60 天', d61_90: '61–90 天', d91_plus: '91 天以上'};
 const kindNames = {VERSION: '版本', PAYMENT: '收款', REVERSAL: '冲销'};
+const clearingKindNames = {NAMED: '点名核销', SWEEP: '自动冲票', PREPAY: '预收冲销'};
+const receiptStatus = {CLEARED: '已分配', QUARANTINED: '整笔隔离'};
 
 function node(tag, text, cls) {
   const el = document.createElement(tag);
@@ -209,4 +211,56 @@ export function history(runs, selected, pick) {
     ['源文件 SHA-256', selected.source_id], ['结果 SHA-256', selected.result_digest],
     ['生成时间', instant(selected.generated_at)], ['规则版本', selected.rule_version], ['耗时 ms', selected.elapsed_ms]]));
   else $('archive-detail').replaceChildren(node('p', '请选择归档批次', 'empty'));
+}
+
+export function clearing(data) {
+  const totals = data.totals;
+  $('clearing-summary').replaceChildren(definitions([
+    ['回款合计', money(totals.received_cents)], ['整笔隔离', money(totals.quarantined_cents)],
+    ['已核销', money(totals.allocated_cents)], ['预收余额', money(totals.prepay_balance_cents)],
+    ['资金恒等差额', money(totals.fund_identity_diff_cents)], ['批次数', String(data.batches.length)],
+  ]));
+  const receipts = [...data.receipts].sort((a, b) => a.line - b.line);
+  table('clearing-receipts', ['回款', '客户', '到账日', ['金额', 'num'], '附言票据', '状态', ['新增预收', 'num']],
+    receipts.map((row) => [
+      cell(row.receipt_id, 'mono'), cell(row.customer_id, 'mono'), row.effective, cash(row.amount_cents),
+      row.refs?.length ? row.refs.join('、') : '—',
+      cell(receiptStatus[row.status] ?? row.status, row.status === 'QUARANTINED' ? 'warn' : 'good'),
+      cash(row.prepay_change_cents),
+    ]));
+  table('clearing-prepay', ['客户', '来源回款', '入账日', ['挂账天数', 'num'], ['预收余额', 'num'], '状态'],
+    data.prepayments.map((row) => [
+      cell(row.customer_id, 'mono'), cell(row.receipt_id, 'mono'), row.opened, number(row.age_days),
+      cash(row.amount_cents), cell(row.stale ? '超龄挂账' : '正常', row.stale ? 'warn' : 'subtle'),
+    ]), '暂无客户预收');
+  table('clearing-allocations', ['序号', '来源回款', '客户', '发票', '类型', ['金额', 'num'], ['截留转预收', 'num'], '判断依据'],
+    [...data.allocations].sort((a, b) => a.seq - b.seq).map((row) => [
+      number(row.seq), cell(row.receipt_id, 'mono'), cell(row.customer_id, 'mono'), cell(row.invoice_id, 'mono'),
+      cell(clearingKindNames[row.kind] ?? row.kind, row.kind === 'NAMED' ? 'good' : 'subtle'),
+      cash(row.amount_cents), cash(row.capped_cents), row.basis,
+    ]), '暂无核销留痕');
+}
+
+export function closeGuard(data) {
+  const label = {MATCHED: '对平可结账', EXPLAINED: '有差异已附解释', BLOCKED: '不平且无解释，禁止结账'}[data.status] ?? data.status;
+  const entries = [['结账状态', label], ['资金恒等差额', money(data.totals.fund_identity_diff_cents)],
+    ['隔离金额', money(data.totals.quarantined_cents)], ['预收余额', money(data.totals.prepay_balance_cents)]];
+  const diffs = Object.entries(data.customer_diff_cents ?? {}).filter(([, value]) => value !== 0);
+  if (diffs.length) entries.push(['客户差额', diffs.map(([k, v]) => `${k}: ${money(v)}`).join('；')]);
+  if (data.explanation) entries.push(['已登记解释', `${data.explanation.note}（${data.explanation.recorded_at}）`]);
+  $('close-guard').replaceChildren(definitions(entries));
+  $('explain-form').hidden = data.status !== 'BLOCKED';
+}
+
+export function policyComparison(data) {
+  const comp = data.policy_comparison;
+  if (!comp) return null;
+  const rows = [];
+  for (const customer of Object.keys(comp.by_customer[comp.chosen])) {
+    const chosen = comp.by_customer[comp.chosen][customer];
+    const alt = comp.by_customer[comp.alternative][customer];
+    rows.push([cell(customer, 'mono'), cash(chosen.open_ledger_cents), cash(chosen.prepay_cents),
+               cash(alt.open_ledger_cents), cash(alt.prepay_cents)]);
+  }
+  return {chosen: comp.chosen, alternative: comp.alternative, rows};
 }

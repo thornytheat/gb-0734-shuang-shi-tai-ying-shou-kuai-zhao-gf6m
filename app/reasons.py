@@ -20,6 +20,15 @@ REASONS = {
     "TARGET_SCOPE": "引用版本与发票、客户或有效日不匹配",
     "NO_ACTIVE_VERSION": "变更有效日无可用版本",
     "EXCEEDS_BALANCE": "本笔变更超过可冲减余额",
+    "REF_UNKNOWN": "附言引用的票据不存在或未采信",
+    "REF_SCOPE": "附言票据与回款客户或发票不匹配",
+    "REF_NO_VERSION": "附言票据在回款当日无有效版本",
+    "CUSTOMER_UNKNOWN": "回款客户在当前知识下没有应收票据",
+    "CAP_LOWER_BALANCE": "按新旧余额孰低核销，超出部分退回预收",
+    "BATCH_MIXED": "同一回款文件出现多个批次编号",
+    "RECEIPT_DUPLICATE": "批次内回款编号重复",
+    "BATCH_CONFLICT": "同名批次内容或裁决参数与已归档批次不一致",
+    "CLEARING_BLOCKED": "发票余额与预收对账不平且缺少结账解释",
 }
 
 

@@ -95,6 +95,13 @@ async function refresh() {
       axis($('axis-known'), 'known', state.source.axis.known, data.cut.known, (stamp) => pick('known', stamp));
     } else if (page === 'intake') {
       view.intake(state.source);
+    } else if (page === 'clearing') {
+      const data = await request(`/api/clearing?${query}`);
+      if (token !== state.token) return;
+      view.clearing(data);
+      const guard = await request(`/api/clearing/close?${query}`);
+      if (token !== state.token) return;
+      view.closeGuard(guard);
     } else {
       const data = await request(`/api/${page}?${query}`);
       if (token !== state.token) return;
@@ -196,6 +203,38 @@ $('rerun').addEventListener('click', () => act(async () => {
   refresh();
   feedback('重跑一致，归档批次号不变');
 }));
+$('remit-upload').addEventListener('submit', (event) => {
+  event.preventDefault();
+  const formData = new FormData(event.currentTarget);
+  act(async () => {
+    const cut = formCut();
+    formData.append('source_id', state.source.source_id);
+    formData.append('effective', cut.effective);
+    formData.append('known', cut.known);
+    const data = await request('/api/clearing/batches', {method: 'POST', body: formData});
+    await refresh();
+    const isolated = data.quarantine.length;
+    feedback(`批次 ${data.batch_id} 已核销：隔离 ${isolated} 笔，预收 ${data.totals.prepay_balance_cents / 100} 元${data.reused ? '（重跑复用，未新增）' : ''}`);
+  });
+});
+$('prepay-sweep').addEventListener('click', () => act(async () => {
+  const query = new URLSearchParams({source_id: state.source.source_id, ...state.cut});
+  const data = await request(`/api/clearing/prepay-sweep?${query}`, {method: 'POST'});
+  await refresh();
+  feedback(`预收冲抵 ${data.allocations.length} 笔，剩余预收 ${data.overview.totals.prepay_balance_cents / 100} 元`);
+}));
+$('close-check').addEventListener('click', () => act(refresh));
+$('explain-form').addEventListener('submit', (event) => {
+  event.preventDefault();
+  const values = Object.fromEntries(new FormData(event.currentTarget));
+  act(async () => {
+    await request('/api/clearing/explanations', {method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({...state.cut, note: values.note})});
+    event.currentTarget.reset();
+    await refresh();
+    feedback('对账解释已留痕，可以结账');
+  });
+});
 window.addEventListener('hashchange', () => { switchPage(); feedback(); refresh(); });
 switchPage();
 state.cut = formCut();

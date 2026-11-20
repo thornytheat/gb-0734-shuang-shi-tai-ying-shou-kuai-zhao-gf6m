@@ -11,6 +11,14 @@ from app.modules.m6_bridge.service import period_book
 from app.modules.m7_archive import repository
 
 
+def clearing_close_guard(store, source_id, period):
+    # 延迟导入避免模块循环依赖
+    from app.modules.m8_clearing.service import close_guard
+    closing = period.closing
+    return close_guard(store, source_id, closing.effective.isoformat(),
+                       utc_text(closing.known))
+
+
 def read_run(store, run_id):
     with store.connect() as connection:
         return repository.get(connection, run_id)
@@ -24,6 +32,10 @@ def save(store, source_id, period):
     result = {"intake": summarize(source_id, data), **period_book(data, period)}
     if result["bridge"]["status"] != "MATCHED":
         raise Problem("UNBALANCED", "期间桥接存在差额", 409)
+    guard = clearing_close_guard(store, source_id, period)
+    result["clearing_close"] = guard
+    if guard["status"] == "BLOCKED":
+        raise Problem("CLEARING_BLOCKED", "发票余额与预收对账不平且缺少结账解释，不能结账", 409)
     payload = canonical(result)
     manifest = {"run_id": run_id, "source_id": source_id, "rule_version": RULE_VERSION,
                 "elapsed_ms": (perf_counter_ns() - start) // 1_000_000,

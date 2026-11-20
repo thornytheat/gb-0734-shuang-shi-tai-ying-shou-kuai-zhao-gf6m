@@ -41,6 +41,8 @@
 .info-list dt { color: var(--muted); }
 .info-list dd { word-break: break-word; text-align: right; }
 .upload-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: end; margin-bottom: 12px; }
+.clearing-actions { display: flex; gap: 10px; margin: 12px 0; flex-wrap: wrap; }
+#close-guard .info-list { margin-top: 8px; }
 .axis-wrap { padding: 10px var(--pad) 15px; }
 .axis { padding: 9px 0 4px; }
 .axis + .axis { border-top: 1px solid var(--line-soft); }

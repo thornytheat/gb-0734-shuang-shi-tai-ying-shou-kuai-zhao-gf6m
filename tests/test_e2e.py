@@ -22,6 +22,6 @@ def test_all_module_routes_after_real_file_upload(client, raw, params):
 def test_home_serves_workbench_and_local_assets(client):
     reply = client.get('/')
     assert reply.status_code == 200 and '双时态应收快照' in reply.text
-    assert all(f'data-page="{name}"' in reply.text for name in ('intake', 'versions', 'snapshot', 'aging', 'backfill', 'bridge', 'archive'))
+    assert all(f'data-page="{name}"' in reply.text for name in ('intake', 'versions', 'snapshot', 'aging', 'backfill', 'bridge', 'archive', 'clearing'))
     assets = ['theme.css', 'layout.css', 'components.css', 'workbench.js', 'views.js', 'axis.js']
     assert all(client.get(f'/static/{item}').status_code == 200 for item in assets)

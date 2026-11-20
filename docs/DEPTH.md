@@ -14,6 +14,7 @@
 | M5 迟报回补 | 固定期初有效日对比两个知悉截面 | `GET /api/backfill` | `app/modules/m5_backfill/service.py` `app/modules/m5_backfill/changes.py` | `tests/test_backfill.py` |
 | M6 期间桥接 | 勾稽总金额和每桶迁移 | `GET /api/bridge` | `app/modules/m6_bridge/ledger.py` `app/modules/m6_bridge/bucket_flow.py` | `tests/test_bridge.py` |
 | M7 快照归档 | 保存、重算和导出证据 | `POST /api/archive` | `app/modules/m7_archive/service.py` `app/modules/m7_archive/export.py` | `tests/test_archive.py` |
+| M8 回款核销 | 回款分配、预收台账与结账守卫 | `POST /api/clearing/batches` | `app/modules/m8_clearing/engine.py` `app/modules/m8_clearing/service.py` | `tests/test_clearing.py` |
 
 ## 陷阱登记
 
@@ -37,6 +38,14 @@
 | TRAP-23 | D-V1 与 D-V2 相邻 | 终日重复选中 | 有效区间右开 | `app/modules/m2_versions/book.py` | `tests/test_versions.py::test_adjacent_intervals_exclusive_end` |
 | TRAP-25 | C-OV 与采信版交叠 | 随排序取错发票金额 | 保留早知悉有效版并披露交叠 | `app/modules/m2_versions/rules.py` | `tests/test_versions.py::test_overlap_reject_keeps_prior_version` |
 | TRAP-26 | 测试追加陈旧的 A 修订 | 用旧父版覆盖当前版 | 校验父版可用性 | `app/modules/m2_versions/rules.py` | `tests/test_versions.py::test_stale_parent_cannot_overwrite_new_revision` |
+| TRAP-27 | 附言引用修订前票据 | 按旧面额核销或整笔失败 | 沿替换链解析，按新旧余额孰低核销 | `app/modules/m8_clearing/balances.py` | `tests/test_clearing.py::test_lower_balance_caps_named_invoice_and_overflow_goes_prepay` |
+| TRAP-28 | 附言引用对不上 | 部分入账，客户欠款虚减 | 整笔回款隔离，不产生任何分配 | `app/modules/m8_clearing/engine.py` | `tests/test_clearing.py::test_unknown_ref_quarantines_whole_receipt_and_keeps_debt` |
+| TRAP-29 | 点名票超额 | 余款被改冲别的发票 | 超额退回预收并留痕，点名资金锁定 | `app/modules/m8_clearing/engine.py` | `tests/test_clearing.py::test_named_invoice_overflow_must_not_sweep_to_other_invoices` |
+| TRAP-30 | 重跑同一批回款 | 核销与预收翻倍 | 批次整批替换，重算结果一致 | `app/modules/m8_clearing/repository.py` | `tests/test_clearing.py::test_rerun_same_batch_is_idempotent` |
+| TRAP-31 | SWEEP/HOLD 两种判断 | 看不到采用了哪种裁决 | 双策略重算对比并显式标注 | `app/modules/m8_clearing/engine.py` | `tests/test_clearing.py::test_sweep_and_hold_policies_produce_different_customer_debt` |
+| TRAP-32 | 预收长期挂账 | 预收与发票欠款一直虚挂 | FIFO 自动冲抵、超龄提示与预收冲抵批次 | `app/modules/m8_clearing/service.py` | `tests/test_clearing.py::test_prepay_sweep_endpoint_clears_aged_prepayment` |
+| TRAP-33 | 对账不平直接结账 | 带病结账无留痕 | 三层守卫，无解释 BLOCKED，附解释 EXPLAINED | `app/modules/m8_clearing/service.py` | `tests/test_clearing.py::test_archive_blocked_on_unbalanced_reconciliation_and_released_by_explanation` |
+| TRAP-34 | 切点 Z 与 +08:00 同刻 | 解释键查不到 | 知悉时间 UTC 归一 | `app/modules/m8_clearing/service.py` | `tests/test_clearing.py::test_archive_blocked_on_unbalanced_reconciliation_and_released_by_explanation` |
 
 ## 对账断言
 
